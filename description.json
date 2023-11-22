@@ -1,0 +1,86 @@
+{
+  "parameters": [
+    {
+      "type": "ParameterTypeNumber",
+      "index": 0,
+      "name": "freq",
+      "paramId": "freq",
+      "minimum": 50,
+      "maximum": 2000,
+      "exponent": 1,
+      "steps": 0,
+      "initialValue": 440,
+      "isEnum": false,
+      "enumValues": [],
+      "displayName": "",
+      "unit": "",
+      "order": 0,
+      "debug": false,
+      "visible": true,
+      "signalIndex": null,
+      "ioType": "IOTypeUndefined"
+    },
+    {
+      "type": "ParameterTypeSignal",
+      "index": 1,
+      "name": "freq",
+      "paramId": "/signals/freq",
+      "minimum": 0,
+      "maximum": 1,
+      "exponent": 1,
+      "steps": 0,
+      "initialValue": 0,
+      "isEnum": false,
+      "enumValues": [],
+      "displayName": "",
+      "unit": "",
+      "order": "",
+      "debug": false,
+      "visible": false,
+      "signalIndex": 0,
+      "ioType": "IOTypeInput"
+    }
+  ],
+  "numParameters": 2,
+  "numSignalInParameters": 1,
+  "numSignalOutParameters": 0,
+  "numInputChannels": 0,
+  "numOutputChannels": 2,
+  "numMidiInputPorts": 1,
+  "numMidiOutputPorts": 1,
+  "externalDataRefs": [],
+  "patcherSerial": 0,
+  "inports": [],
+  "outports": [],
+  "inlets": [
+    {
+      "type": "midi"
+    }
+  ],
+  "outlets": [
+    {
+      "type": "signal",
+      "index": 0,
+      "tag": "out0",
+      "meta": ""
+    },
+    {
+      "type": "signal",
+      "index": 1,
+      "tag": "out1",
+      "meta": ""
+    },
+    {
+      "type": "midi"
+    }
+  ],
+  "presetid": "rnbo",
+  "meta": {
+    "architecture": "x64",
+    "filename": "midi_and_gen.maxpat",
+    "rnboobjname": "rnbomatic",
+    "maxversion": "8.5.6",
+    "rnboversion": "1.2.1",
+    "name": "untitled"
+  }
+}
