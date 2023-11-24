@@ -89,6 +89,7 @@ rnbomatic* getTopLevelPatcher() {
 
 void cancelClockEvents()
 {
+    getEngine()->flushClockEvents(this, -871642103, false);
 }
 
 template <typename T> void listquicksort(T& arr, T& sortindices, Int l, Int h, bool ascending) {
@@ -163,12 +164,20 @@ number samplerate() {
     return this->sr;
 }
 
-number mstosamps(MillisecondTime ms) {
-    return ms * this->sr * 0.001;
+number minimum(number x, number y) {
+    return (y < x ? y : x);
 }
 
 number maximum(number x, number y) {
     return (x < y ? y : x);
+}
+
+number mstosamps(MillisecondTime ms) {
+    return ms * this->sr * 0.001;
+}
+
+Index vectorsize() {
+    return this->vs;
 }
 
 MillisecondTime currenttime() {
@@ -213,8 +222,19 @@ void process(
     SampleValue * out0 = (numOutputs >= 1 && outputs[0] ? outputs[0] : this->dummyBuffer);
     SampleValue * out1 = (numOutputs >= 2 && outputs[1] ? outputs[1] : this->dummyBuffer);
     this->paramtilde_01_perform(freq, this->signals[0], n);
-    this->gen_01_perform(this->signals[0], out1, n);
-    this->signalforwarder_01_perform(out1, out0, n);
+    this->gen_01_perform(this->signals[0], this->signals[1], n);
+
+    this->groove_01_perform(
+        this->groove_01_rate_auto,
+        this->groove_01_begin,
+        this->groove_01_end,
+        this->signals[0],
+        this->dummyBuffer,
+        n
+    );
+
+    this->signaladder_01_perform(this->signals[1], this->signals[0], out0, n);
+    this->signaladder_02_perform(this->signals[1], this->signals[0], out1, n);
     this->stackprotect_perform(n);
     this->globaltransport_advance();
     this->audioProcessSampleCount += this->vs;
@@ -224,7 +244,7 @@ void prepareToProcess(number sampleRate, Index maxBlockSize, bool force) {
     if (this->maxvs < maxBlockSize || !this->didAllocateSignals) {
         Index i;
 
-        for (i = 0; i < 1; i++) {
+        for (i = 0; i < 2; i++) {
             this->signals[i] = resizeSignal(this->signals[i], this->maxvs, maxBlockSize);
         }
 
@@ -248,6 +268,8 @@ void prepareToProcess(number sampleRate, Index maxBlockSize, bool force) {
     }
 
     this->paramtilde_01_dspsetup(forceDSPSetup);
+    this->groove_01_dspsetup(forceDSPSetup);
+    this->data_01_dspsetup(forceDSPSetup);
     this->globaltransport_dspsetup(forceDSPSetup);
 
     if (sampleRateChanged)
@@ -273,6 +295,11 @@ Index getProbingChannels(MessageTag outletId) const {
 
 DataRef* getDataRef(DataRefIndex index)  {
     switch (index) {
+    case 0:
+        {
+        return addressOf(this->test);
+        break;
+        }
     default:
         {
         return nullptr;
@@ -281,16 +308,50 @@ DataRef* getDataRef(DataRefIndex index)  {
 }
 
 DataRefIndex getNumDataRefs() const {
-    return 0;
+    return 1;
 }
 
-void fillDataRef(DataRefIndex , DataRef& ) {}
+void filltest(DataRef& ref) {
+    Float32BufferRef buffer;
+    buffer = new Float32Buffer(ref);
+    number bufsize = buffer->getSize();
 
-void processDataViewUpdate(DataRefIndex , MillisecondTime ) {}
+    for (number channel = 0; channel < buffer->getChannels(); channel++) {
+        for (int index = 0; index < bufsize; index++) {
+            number x = index / bufsize;
+            number value = rnbo_sin(2 * x);
+            buffer->setSample(channel, index, value);
+        }
+    }
+}
+
+void fillDataRef(DataRefIndex index, DataRef& ref) {
+    switch (index) {
+    case 0:
+        {
+        this->filltest(ref);
+        break;
+        }
+    }
+}
+
+void processDataViewUpdate(DataRefIndex index, MillisecondTime time) {
+    this->updateTime(time);
+
+    if (index == 0) {
+        this->groove_01_buffer = new Float32Buffer(this->test);
+        this->data_01_buffer = new Float32Buffer(this->test);
+        this->data_01_bufferUpdated();
+    }
+}
 
 void initialize() {
+    this->test = initDataRef("test", false, nullptr, "buffer~");
     this->assign_defaults();
     this->setState();
+    this->test->setIndex(0);
+    this->groove_01_buffer = new Float32Buffer(this->test);
+    this->data_01_buffer = new Float32Buffer(this->test);
     this->initializeObjects();
     this->allocateDataRefs();
     this->startup();
@@ -570,7 +631,19 @@ void processParamInitEvents() {
     }
 }
 
-void processClockEvent(MillisecondTime , ClockId , bool , ParameterValue ) {}
+void processClockEvent(MillisecondTime time, ClockId index, bool hasValue, ParameterValue value) {
+    RNBO_UNUSED(value);
+    RNBO_UNUSED(hasValue);
+    this->updateTime(time);
+
+    switch (index) {
+    case -871642103:
+        {
+        this->loadbang_01_startupbang_bang();
+        break;
+        }
+    }
+}
 
 void processOutletAtCurrentTime(EngineLink* , OutletIndex , ParameterValue ) {}
 
@@ -588,11 +661,49 @@ void processNumMessage(MessageTag , MessageTag , MillisecondTime , number ) {}
 
 void processListMessage(MessageTag , MessageTag , MillisecondTime , const list& ) {}
 
-void processBangMessage(MessageTag , MessageTag , MillisecondTime ) {}
+void processBangMessage(MessageTag tag, MessageTag objectId, MillisecondTime time) {
+    this->updateTime(time);
+
+    switch (tag) {
+    case TAG("bangin"):
+        {
+        if (TAG("button_obj-10") == objectId)
+            this->button_01_bangin_bang();
+
+        break;
+        }
+    case TAG("startupbang"):
+        {
+        if (TAG("loadbang_obj-5") == objectId)
+            this->loadbang_01_startupbang_bang();
+
+        break;
+        }
+    }
+}
 
 MessageTagInfo resolveTag(MessageTag tag) const {
     switch (tag) {
-
+    case TAG("bangout"):
+        {
+        return "bangout";
+        }
+    case TAG("button_obj-10"):
+        {
+        return "button_obj-10";
+        }
+    case TAG("bangin"):
+        {
+        return "bangin";
+        }
+    case TAG("startupbang"):
+        {
+        return "startupbang";
+        }
+    case TAG("loadbang_obj-5"):
+        {
+        return "loadbang_obj-5";
+        }
     }
 
     return "";
@@ -626,6 +737,14 @@ void paramtilde_01_value_set(number v) {
     }
 }
 
+void button_01_bangin_bang() {
+    this->button_01_bangval_bang();
+}
+
+void loadbang_01_startupbang_bang() {
+    this->loadbang_01_output_bang();
+}
+
 number msToSamps(MillisecondTime ms, number sampleRate) {
     return ms * sampleRate * 0.001;
 }
@@ -654,10 +773,23 @@ Index getNumOutputChannels() const {
     return 2;
 }
 
-void allocateDataRefs() {}
+void allocateDataRefs() {
+    this->data_01_buffer->requestSize(this->mstosamps(100), 1);
+    this->data_01_buffer->setSampleRate(this->sr);
+    this->groove_01_buffer = this->groove_01_buffer->allocateIfNeeded();
+    this->data_01_buffer = this->data_01_buffer->allocateIfNeeded();
+
+    if (this->test->hasRequestedSize()) {
+        if (this->test->wantsFill())
+            this->filltest(this->test);
+
+        this->getEngine()->sendDataRefUpdated(0);
+    }
+}
 
 void initializeObjects() {
     this->gen_01_phase_init();
+    this->data_01_init();
 }
 
 void sendOutlet(OutletIndex index, ParameterValue value) {
@@ -666,14 +798,33 @@ void sendOutlet(OutletIndex index, ParameterValue value) {
 
 void startup() {
     this->updateTime(this->getEngine()->getCurrentTime());
+    this->getEngine()->scheduleClockEvent(this, -871642103, 0 + this->_currentTime);;
     this->processParamInitEvents();
+}
+
+void groove_01_rate_bang_bang() {
+    this->groove_01_changeIncomingInSamples = this->sampleOffsetIntoNextAudioBuffer + 1;
+    this->groove_01_incomingChange = 1;
+}
+
+void button_01_output_bang() {
+    this->groove_01_rate_bang_bang();
+}
+
+void button_01_bangval_bang() {
+    this->getEngine()->sendBangMessage(TAG("bangout"), TAG("button_obj-10"), this->_currentTime);;
+    this->button_01_output_bang();
+}
+
+void loadbang_01_output_bang() {
+    this->groove_01_rate_bang_bang();
 }
 
 void midiout_01_midiin_set(number v) {
     int vi = (int)(v);
 
     if (vi == 0xF6 || (vi >= MIDI_Clock && vi <= MIDI_Reset && vi != 0xF9 && vi != 0xFD)) {
-        this->getEngine()->sendMidiEvent(this->midiout_01_port, vi, 0, 0);
+        this->getEngine()->sendMidiEvent(this->midiout_01_port, vi, 0, 0, this->_currentTime);
         return;
     }
 
@@ -698,7 +849,15 @@ void midiout_01_midiin_set(number v) {
     case MIDI_SongSel:
         {
         this->midiout_01_byte1 = v;
-        this->getEngine()->sendMidiEvent(this->midiout_01_port, this->midiout_01_status, this->midiout_01_byte1, 0);
+
+        this->getEngine()->sendMidiEvent(
+            this->midiout_01_port,
+            this->midiout_01_status,
+            this->midiout_01_byte1,
+            0,
+            this->_currentTime
+        );
+
         break;
         }
     case MIDI_NoteOff:
@@ -709,7 +868,14 @@ void midiout_01_midiin_set(number v) {
     case MIDI_SongPos:
     case MIDI_Generic:
         {
-        this->getEngine()->sendMidiEvent(this->midiout_01_port, this->midiout_01_status, this->midiout_01_byte1, v);
+        this->getEngine()->sendMidiEvent(
+            this->midiout_01_port,
+            this->midiout_01_status,
+            this->midiout_01_byte1,
+            v,
+            this->_currentTime
+        );
+
         break;
         }
     case MIDI_Sysex_Started:
@@ -721,7 +887,7 @@ void midiout_01_midiin_set(number v) {
     case MIDI_Sysex_Complete:
         {
         this->midiout_01_sysex->push(vi);
-        this->getEngine()->sendMidiEventList(this->midiout_01_port, this->midiout_01_sysex);
+        this->getEngine()->sendMidiEventList(this->midiout_01_port, this->midiout_01_sysex, this->_currentTime);
         break;
         }
     case MIDI_InvalidByte:
@@ -755,7 +921,6 @@ void midiin_01_midihandler(int status, int channel, int port, ConstByteArray dat
 }
 
 void paramtilde_01_perform(const SampleValue * freq, SampleValue * out, Index n) {
-    auto __paramtilde_01_sigbuf = this->paramtilde_01_sigbuf;
     auto __paramtilde_01_value = this->paramtilde_01_value;
     auto __paramtilde_01_lastIndex = this->paramtilde_01_lastIndex;
 
@@ -763,7 +928,7 @@ void paramtilde_01_perform(const SampleValue * freq, SampleValue * out, Index n)
         if (i >= __paramtilde_01_lastIndex) {
             out[(Index)i] = freq[(Index)i] + __paramtilde_01_value;
         } else {
-            out[(Index)i] = freq[(Index)i] + __paramtilde_01_sigbuf[(Index)i];
+            out[(Index)i] = freq[(Index)i] + this->paramtilde_01_sigbuf[(Index)i];
         }
     }
 
@@ -787,9 +952,168 @@ void gen_01_perform(const Sample * in1, SampleValue * out1, Index n) {
     this->gen_01_phase_value = __gen_01_phase_value;
 }
 
-void signalforwarder_01_perform(const SampleValue * input, SampleValue * output, Index n) {
-    for (Index i = 0; i < n; i++) {
-        output[(Index)i] = input[(Index)i];
+void groove_01_perform(
+    number rate_auto,
+    number begin,
+    number end,
+    SampleValue * out1,
+    SampleValue * sync,
+    Index n
+) {
+    RNBO_UNUSED(out1);
+    RNBO_UNUSED(end);
+    RNBO_UNUSED(begin);
+    RNBO_UNUSED(rate_auto);
+    auto __groove_01_crossfade = this->groove_01_crossfade;
+    auto __groove_01_loop = this->groove_01_loop;
+    auto __groove_01_playStatus = this->groove_01_playStatus;
+    auto __groove_01_readIndex = this->groove_01_readIndex;
+    auto __groove_01_incomingChange = this->groove_01_incomingChange;
+    auto __groove_01_changeIncomingInSamples = this->groove_01_changeIncomingInSamples;
+    auto __groove_01_buffer = this->groove_01_buffer;
+    SampleArray<1> out = {out1};
+    SampleIndex bufferLength = (SampleIndex)(__groove_01_buffer->getSize());
+    Index i = 0;
+
+    if (bufferLength > 1) {
+        auto effectiveChannels = this->minimum(__groove_01_buffer->getChannels(), 1);
+        number srMult = 0.001 * __groove_01_buffer->getSampleRate();
+        number srInv = (number)1 / this->samplerate();
+        number rateMult = __groove_01_buffer->getSampleRate() * srInv;
+
+        for (; i < n; i++) {
+            Index channel = 0;
+            number offset = 0;
+            number loopMin = 0 * srMult;
+            loopMin = (loopMin > bufferLength - 1 ? bufferLength - 1 : (loopMin < 0 ? 0 : loopMin));
+            number loopMax = bufferLength;
+            loopMax = (loopMax > bufferLength ? bufferLength : (loopMax < 0 ? 0 : loopMax));
+
+            if (loopMin >= loopMax) {
+                offset = loopMax;
+                loopMax = bufferLength;
+                loopMin -= offset;
+            }
+
+            number loopLength = loopMax - loopMin;
+            number currentRate = 1 * rateMult;
+            number currentSync = 0;
+
+            if (__groove_01_changeIncomingInSamples > 0) {
+                __groove_01_changeIncomingInSamples--;
+
+                if (__groove_01_changeIncomingInSamples <= 0) {
+                    if (__groove_01_incomingChange == 1) {
+                        if (currentRate < 0) {
+                            __groove_01_readIndex = loopMax - 1;
+                        } else {
+                            __groove_01_readIndex = loopMin;
+                        }
+
+                        __groove_01_playStatus = 1;
+                    } else if (__groove_01_incomingChange == 0) {
+                        __groove_01_playStatus = 0;
+                    }
+
+                    __groove_01_incomingChange = 2;
+                }
+            }
+
+            if (loopLength > 0) {
+                if (currentRate != 0) {
+                    if (__groove_01_playStatus == 1) {
+                        if ((bool)(__groove_01_loop)) {
+                            while (__groove_01_readIndex < loopMin) {
+                                __groove_01_readIndex += loopLength;
+                            }
+
+                            while (__groove_01_readIndex >= loopMax) {
+                                __groove_01_readIndex -= loopLength;
+                            }
+                        } else if (__groove_01_readIndex >= loopMax || __groove_01_readIndex < loopMin) {
+                            __groove_01_playStatus = 0;
+                            break;
+                        }
+
+                        for (; channel < effectiveChannels; channel++) {
+                            number outSample = (currentRate == 1 ? this->groove_01_getSample((Index)(channel), trunc(__groove_01_readIndex), offset, bufferLength) : this->groove_01_interpolatedSample(
+                                (Index)(channel),
+                                __groove_01_readIndex,
+                                loopMax,
+                                loopLength,
+                                offset,
+                                bufferLength
+                            ));
+
+                            if (__groove_01_crossfade > 0) {
+                                out[(Index)channel][(Index)i] = this->groove_01_crossfadedSample(
+                                    outSample,
+                                    __groove_01_readIndex,
+                                    (Index)(channel),
+                                    currentRate,
+                                    loopMin,
+                                    loopMax,
+                                    loopLength,
+                                    offset,
+                                    bufferLength
+                                );
+                            } else {
+                                out[(Index)channel][(Index)i] = outSample;
+                            }
+                        }
+
+                        __groove_01_readIndex += currentRate;
+                    }
+                }
+            }
+
+            for (; channel < 1; channel++) {
+                if (__groove_01_playStatus <= 0)
+                    sync[(Index)i] = 0;
+
+                out[(Index)channel][(Index)i] = 0;
+            }
+        }
+    }
+
+    for (; i < n; i++) {
+        if (__groove_01_playStatus <= 0)
+            sync[(Index)i] = 0;
+
+        for (number channel = 0; channel < 1; channel++) {
+            out[(Index)channel][(Index)i] = 0;
+        }
+    }
+
+    this->groove_01_changeIncomingInSamples = __groove_01_changeIncomingInSamples;
+    this->groove_01_incomingChange = __groove_01_incomingChange;
+    this->groove_01_readIndex = __groove_01_readIndex;
+    this->groove_01_playStatus = __groove_01_playStatus;
+}
+
+void signaladder_01_perform(
+    const SampleValue * in1,
+    const SampleValue * in2,
+    SampleValue * out,
+    Index n
+) {
+    Index i;
+
+    for (i = 0; i < n; i++) {
+        out[(Index)i] = in1[(Index)i] + in2[(Index)i];
+    }
+}
+
+void signaladder_02_perform(
+    const SampleValue * in1,
+    const SampleValue * in2,
+    SampleValue * out,
+    Index n
+) {
+    Index i;
+
+    for (i = 0; i < n; i++) {
+        out[(Index)i] = in1[(Index)i] + in2[(Index)i];
     }
 }
 
@@ -798,6 +1122,14 @@ void stackprotect_perform(Index n) {
     auto __stackprotect_count = this->stackprotect_count;
     __stackprotect_count = 0;
     this->stackprotect_count = __stackprotect_count;
+}
+
+void data_01_srout_set(number ) {}
+
+void data_01_chanout_set(number ) {}
+
+void data_01_sizeout_set(number v) {
+    this->data_01_sizeout = v;
 }
 
 void paramtilde_01_value_setter(number v) {
@@ -834,6 +1166,145 @@ void gen_01_phase_reset() {
 
 void gen_01_phase_init() {
     this->gen_01_phase_value = 0;
+}
+
+number groove_01_getSample(
+    Index channel,
+    SampleIndex index,
+    SampleIndex offset,
+    SampleIndex bufferLength
+) {
+    if (offset > 0) {
+        index += offset;
+
+        if (index >= bufferLength)
+            index -= bufferLength;
+    }
+
+    return this->groove_01_buffer->getSample(channel, index);
+}
+
+number groove_01_interpolatedSample(
+    Index channel,
+    number index,
+    SampleIndex end,
+    SampleIndex length,
+    SampleIndex offset,
+    SampleIndex bufferLength
+) {
+    SampleIndex index1 = (SampleIndex)(trunc(index));
+    number i_x = index - index1;
+    number i_1px = 1. + i_x;
+    number i_1mx = 1. - i_x;
+    number i_2mx = 2. - i_x;
+    number i_a = i_1mx * i_2mx;
+    number i_b = i_1px * i_x;
+    number i_p1 = -.1666667 * i_a * i_x;
+    number i_p2 = .5 * i_1px * i_a;
+    number i_p3 = .5 * i_b * i_2mx;
+    number i_p4 = -.1666667 * i_b * i_1mx;
+    SampleIndex index2 = (SampleIndex)(index1 + 1);
+
+    if (index2 >= end)
+        index2 -= length;
+
+    SampleIndex index3 = (SampleIndex)(index1 + 2);
+
+    if (index3 >= end)
+        index3 -= length;
+
+    SampleIndex index4 = (SampleIndex)(index1 + 3);
+
+    if (index4 >= end)
+        index4 -= length;
+
+    return this->groove_01_getSample(channel, index1, offset, bufferLength) * i_p1 + this->groove_01_getSample(channel, index2, offset, bufferLength) * i_p2 + this->groove_01_getSample(channel, index3, offset, bufferLength) * i_p3 + this->groove_01_getSample(channel, index4, offset, bufferLength) * i_p4;
+}
+
+number groove_01_crossfadedSample(
+    SampleValue out,
+    number readIndex,
+    Index channel,
+    number rate,
+    number loopMin,
+    number loopMax,
+    number loopLength,
+    number offset,
+    number bufferLength
+) {
+    auto crossFadeStart1 = this->maximum(loopMin - this->groove_01_crossfadeInSamples, 0);
+    auto crossFadeEnd1 = this->minimum(crossFadeStart1 + this->groove_01_crossfadeInSamples, bufferLength);
+    number crossFadeStart2 = crossFadeStart1 + loopLength;
+    auto crossFadeEnd2 = this->minimum(crossFadeEnd1 + loopLength, bufferLength);
+    number crossFadeLength = crossFadeEnd2 - crossFadeStart2;
+
+    if (crossFadeLength > 0) {
+        crossFadeEnd1 = crossFadeStart1 + crossFadeLength;
+        number diff = -1;
+        number addFactor = 0;
+
+        if (readIndex >= crossFadeStart2) {
+            diff = readIndex - crossFadeStart2;
+            addFactor = -1;
+        } else if (readIndex < crossFadeEnd1) {
+            diff = crossFadeEnd1 - readIndex + loopMax - crossFadeStart2;
+            addFactor = 1;
+        }
+
+        if (diff >= 0) {
+            number out2ReadIndex = readIndex + loopLength * addFactor;
+            number out2 = (rate == 1 ? this->groove_01_getSample(channel, trunc(out2ReadIndex), offset, bufferLength) : this->groove_01_interpolatedSample(channel, out2ReadIndex, loopMax, loopLength, offset, bufferLength));
+            number out2Factor = diff / crossFadeLength;
+            number out1Factor = 1 - out2Factor;
+            return out * out1Factor + out2 * out2Factor;
+        }
+    }
+
+    return out;
+}
+
+void groove_01_dspsetup(bool force) {
+    if ((bool)(this->groove_01_setupDone) && (bool)(!(bool)(force)))
+        return;
+
+    this->groove_01_crossfadeInSamples = this->mstosamps(this->groove_01_crossfade);
+    this->groove_01_setupDone = true;
+}
+
+void data_01_init() {
+    this->data_01_buffer->setWantsFill(true);
+}
+
+Index data_01_evaluateSizeExpr(number samplerate, number vectorsize) {
+    RNBO_UNUSED(vectorsize);
+    RNBO_UNUSED(samplerate);
+    number size = 0;
+    return (Index)(size);
+}
+
+void data_01_dspsetup(bool force) {
+    if ((bool)(this->data_01_setupDone) && (bool)(!(bool)(force)))
+        return;
+
+    if (this->data_01_sizemode == 2) {
+        this->data_01_buffer = this->data_01_buffer->setSize((Index)(this->mstosamps(this->data_01_sizems)));
+        updateDataRef(this, this->data_01_buffer);
+    } else if (this->data_01_sizemode == 3) {
+        this->data_01_buffer = this->data_01_buffer->setSize(this->data_01_evaluateSizeExpr(this->samplerate(), this->vectorsize()));
+        updateDataRef(this, this->data_01_buffer);
+    }
+
+    this->data_01_setupDone = true;
+}
+
+void data_01_bufferUpdated() {
+    this->data_01_report();
+}
+
+void data_01_report() {
+    this->data_01_srout_set(this->data_01_buffer->getSampleRate());
+    this->data_01_chanout_set(this->data_01_buffer->getChannels());
+    this->data_01_sizeout_set(this->data_01_buffer->getSize());
 }
 
 Index globaltransport_getSampleOffset(MillisecondTime time) {
@@ -1067,12 +1538,23 @@ void assign_defaults()
     paramtilde_01_value = 440;
     paramtilde_01_value_setter(paramtilde_01_value);
     gen_01_in1 = 0;
+    groove_01_rate_auto = 1;
+    groove_01_begin = 0;
+    groove_01_end = -1;
+    groove_01_loop = 1;
+    groove_01_crossfade = 0;
+    data_01_sizeout = 0;
+    data_01_size = 0;
+    data_01_sizems = 100;
+    data_01_normalize = 0.995;
+    data_01_channels = 1;
     _currentTime = 0;
     audioProcessSampleCount = 0;
     sampleOffsetIntoNextAudioBuffer = 0;
     zeroBuffer = nullptr;
     dummyBuffer = nullptr;
     signals[0] = nullptr;
+    signals[1] = nullptr;
     didAllocateSignals = 0;
     vs = 0;
     maxvs = 0;
@@ -1085,6 +1567,14 @@ void assign_defaults()
     paramtilde_01_sigbuf = nullptr;
     paramtilde_01_setupDone = false;
     gen_01_phase_value = 0;
+    groove_01_readIndex = 0;
+    groove_01_playStatus = 0;
+    groove_01_changeIncomingInSamples = 0;
+    groove_01_incomingChange = 2;
+    groove_01_crossfadeInSamples = 0;
+    groove_01_setupDone = false;
+    data_01_sizemode = 2;
+    data_01_setupDone = false;
     globaltransport_tempo = nullptr;
     globaltransport_tempoNeedsReset = false;
     globaltransport_lastTempo = 120;
@@ -1107,12 +1597,22 @@ void assign_defaults()
     number midiin_01_port;
     number paramtilde_01_value;
     number gen_01_in1;
+    number groove_01_rate_auto;
+    number groove_01_begin;
+    number groove_01_end;
+    number groove_01_loop;
+    number groove_01_crossfade;
+    number data_01_sizeout;
+    number data_01_size;
+    number data_01_sizems;
+    number data_01_normalize;
+    number data_01_channels;
     MillisecondTime _currentTime;
     SampleIndex audioProcessSampleCount;
     SampleIndex sampleOffsetIntoNextAudioBuffer;
     signal zeroBuffer;
     signal dummyBuffer;
-    SampleValue * signals[1];
+    SampleValue * signals[2];
     bool didAllocateSignals;
     Index vs;
     Index maxvs;
@@ -1126,6 +1626,16 @@ void assign_defaults()
     signal paramtilde_01_sigbuf;
     bool paramtilde_01_setupDone;
     number gen_01_phase_value;
+    Float32BufferRef groove_01_buffer;
+    number groove_01_readIndex;
+    Index groove_01_playStatus;
+    SampleIndex groove_01_changeIncomingInSamples;
+    Int groove_01_incomingChange;
+    SampleIndex groove_01_crossfadeInSamples;
+    bool groove_01_setupDone;
+    Float32BufferRef data_01_buffer;
+    Int data_01_sizemode;
+    bool data_01_setupDone;
     signal globaltransport_tempo;
     bool globaltransport_tempoNeedsReset;
     number globaltransport_lastTempo;
@@ -1137,6 +1647,7 @@ void assign_defaults()
     bool globaltransport_notify;
     bool globaltransport_setupDone;
     number stackprotect_count;
+    DataRef test;
     Index _voiceIndex;
     Int _noteNumber;
     Index isMuted;

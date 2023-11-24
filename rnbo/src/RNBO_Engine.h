@@ -344,7 +344,7 @@ namespace RNBO {
 
 	};
 
-	PatcherInterface* creaternbomatic()
+	PatcherInterface* createmockcore()
 	{
 		return new MockCoreObject();
 	}
@@ -352,7 +352,7 @@ namespace RNBO {
 	extern "C" PatcherFactoryFunctionPtr GetPatcherFactoryFunction(PlatformInterface* platformInterface)
 	{
 		Platform::set(platformInterface);
-		return creaternbomatic;
+		return createmockcore;
 	}
 
 	class EngineTests : public UnitTest, public EventHandler {

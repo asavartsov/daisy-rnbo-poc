@@ -1,6 +1,14 @@
 [
   {
-    "name": "untitled",
+    "name": "TestSnapshot",
     "preset": {}
+  },
+  {
+    "name": "Snap2",
+    "preset": {
+      "dial_01": {
+        "value": 89.59999999999997
+      }
+    }
   }
 ]

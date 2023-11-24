@@ -1,6 +1,20 @@
 #pragma once
 
+#include <cstring>
+#include <cstdio>
+#include <daisy.h>
+#include "memmgr/memmgr.h"
 #include "RNBO_PlatformInterface.h"
+
+#ifndef RNBO_MEMORY_POOL
+#define RNBO_MEMORY_POOL DSY_SDRAM_BSS
+#endif
+
+#ifndef RNBO_MEMORY_POOL_SIZE
+#define RNBO_MEMORY_POOL_SIZE 1*1024*1024
+#endif
+
+uint8_t RNBO_MEMORY_POOL _MemoryPool[RNBO_MEMORY_POOL_SIZE];
 
 namespace RNBO {
 	class DaisyPlatform : public PlatformInterface
@@ -9,11 +23,12 @@ namespace RNBO {
 		DaisyPlatform()
 		{
 			Platform::set(this);
+
+			this->_memoryManager.memmgr_init(_MemoryPool, RNBO_MEMORY_POOL_SIZE);
 		}
 
 		~DaisyPlatform() override
 		{
-
 		}
 
 		void printMessage(const char* message) override
@@ -24,28 +39,40 @@ namespace RNBO {
 		// memory allocation
 		void* malloc(size_t bytes) override
 		{
-			return ::malloc(bytes);
+			// return ::malloc(bytes);
+			return this->_memoryManager.memmgr_alloc(bytes);
 		}
 
 		void* calloc(size_t num, size_t size) override
 		{
-			return ::calloc(num, size);
+			void *ptr = this->malloc(num * size);
+			
+			::memset(ptr, 0, num * size);
+
+			return ptr;
 		}
 
 		void* realloc(void* ptr, size_t bytes) override
 		{
-			//::realloc doesn't like zero sized allocations
 			if (bytes == 0) {
-				if (ptr)
-					::free(ptr);
+				if (ptr) {
+					this->free(ptr);
+				}
+
 				return nullptr;
 			}
-			return ::realloc(ptr, bytes);
+
+			this->free(ptr);
+			return this->malloc(bytes);
 		}
 
 		void free(void* ptr) override
 		{
-			return ::free(ptr);
+
+			if (ptr) {
+				// ::free(ptr);
+				this->_memoryManager.memmgr_free(ptr);
+			}
 		}
 
 		void* memcpy(void* dest, const void* src, size_t n) override
@@ -130,5 +157,9 @@ namespace RNBO {
 		void assertTrue(bool v, const char* msg) override {
 			/* @TODO */
 		}
+	protected:
+		MemoryManager _memoryManager;
 	};
-} // namespace RNBO
+
+	static DaisyPlatform platformInstance;
+}

@@ -48,7 +48,13 @@
   "numOutputChannels": 2,
   "numMidiInputPorts": 1,
   "numMidiOutputPorts": 1,
-  "externalDataRefs": [],
+  "externalDataRefs": [
+    {
+      "id": "test",
+      "type": "Float32Buffer",
+      "tag": "buffer~"
+    }
+  ],
   "patcherSerial": 0,
   "inports": [],
   "outports": [],
@@ -77,10 +83,10 @@
   "presetid": "rnbo",
   "meta": {
     "architecture": "x64",
-    "filename": "midi_and_gen.maxpat",
+    "filename": "rnbo_test.maxpat",
     "rnboobjname": "rnbomatic",
     "maxversion": "8.5.6",
-    "rnboversion": "1.2.1",
+    "rnboversion": "1.2.3",
     "name": "untitled"
   }
 }
