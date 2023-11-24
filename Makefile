@@ -14,10 +14,8 @@ SYSTEM_FILES_DIR = $(LIBDAISY_DIR)/core
 include $(SYSTEM_FILES_DIR)/Makefile
 
 RNBO_DEFS = -DRNBO_SIMPLEENGINE -DRNBO_USE_FLOAT32 -DRNBO_NOJSONPRESETS
-RNBO_FLAGS = -fexceptions -Wno-pragmas -Wno-strict-aliasing -Wno-sign-compare -Wno-psabi -fexceptions
-# RNBO_FLAGS += -Wpedantic -Wextra 
+RNBO_FLAGS = -Wno-pragmas -Wno-strict-aliasing -Wno-sign-compare -Wno-psabi -fexceptions
 
 CFLAGS += $(RNBO_DEFS) $(RNBO_FLAGS)
-ASFLAGS += $(RNBO_DEFS) $(RNBO_FLAGS)
 CPPFLAGS += $(RNBO_DEFS) $(RNBO_FLAGS)
 C_INCLUDES += -Icompat -I$(RNBO_DIR) -I$(RNBO_DIR)/common
