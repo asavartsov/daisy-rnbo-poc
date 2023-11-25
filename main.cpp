@@ -46,7 +46,6 @@ int main(void)
     float frequency = 50.0f;
     float inc = 0.002f;
     int counter = 0;
-    int lastMidiUs = System::GetUs();
 
     auto paramId = rnboObject->getParameterIndexForID("freq");
 
@@ -55,12 +54,8 @@ int main(void)
 
         midiInput.clearEventsBeforeTime(now);
 
-        if (System::GetUs() - lastMidiUs > 100) {
-            auto event = RNBO::MidiEvent(now, 0, 0x90, 0x3C, 0x64);
-            lastMidiUs = RNBOTimeNow;
-
-            midiInput.addEvent(event);
-        }
+        auto event = RNBO::MidiEvent(now, 0, 0x90, 0x3C, 0x64);
+        midiInput.addEvent(event);
 
         for (auto ptr = midiOutput.begin(); ptr < midiOutput.end(); ptr++) {
             hw.SetLed(counter++ > 1000);

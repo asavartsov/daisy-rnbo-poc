@@ -1,0 +1,39 @@
+{
+    "configurations": [
+        {
+            "cStandard": "c11",
+            "compilerPath": "arm-none-eabi-g++.exe",
+            "cppStandard": "c++17",
+            "defines": [
+                "RNBO_SIMPLEENGINE",
+                "RNBO_USE_FLOAT32",
+                "RNBO_NOJSONPRESETS"
+            ],
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/libDaisy/**"
+            ],
+            "name": "Win32",
+            "intelliSenseMode": "linux-gcc-arm",
+            "windowsSdkVersion": "10.0.17763.0"
+        },
+        {
+            "cStandard": "c11",
+            "compilerPath": "/usr/local/bin/arm-none-eabi-g++",
+            "cppStandard": "c++17",
+            "defines": [
+                "RNBO_SIMPLEENGINE",
+                "RNBO_USE_FLOAT32",
+                "RNBO_NOJSONPRESETS"
+            ],
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/../libDaisy/**"
+            ],
+            "name": "Mac",
+            "intelliSenseMode": "linux-gcc-arm"
+        }
+    ],
+    "version": 4,
+    "enableConfigurationSquiggles": true
+}
